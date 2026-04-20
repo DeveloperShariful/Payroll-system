@@ -1,13 +1,14 @@
-// lib/api/api_timesheets.ts
+// frontend/lib/api/api_timesheets.ts
 import axiosClient from "./axiosClient";
+import { Timesheet } from "../../types";
 
 export const getMyAssignments = async () => {
   const response = await axiosClient.get("/timesheets/my-assignments");
   return response.data;
 };
 
-export const getTimesheets = async () => {
-  const response = await axiosClient.get("/timesheets/");
+export const getTimesheets = async (limit: number = 100, offset: number = 0): Promise<Timesheet[]> => {
+  const response = await axiosClient.get(`/timesheets/?limit=${limit}&offset=${offset}`);
   return response.data;
 };
 

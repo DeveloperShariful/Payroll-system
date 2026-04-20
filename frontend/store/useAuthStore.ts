@@ -1,4 +1,4 @@
-// src/store/useAuthStore.ts
+// frontend/store/useAuthStore.ts
 import { create } from "zustand";
 import { User } from "../types";
 

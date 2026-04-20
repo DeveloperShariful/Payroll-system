@@ -1,9 +1,5 @@
-// lib/api/api_payroll.ts
-import axiosClient from "@/lib/api/axiosClient";
-
-// =====================================
-// PAYROLL PROCESSING ENDPOINTS
-// =====================================
+// frontend/lib/api/api_payroll.ts
+import axiosClient from "./axiosClient";
 
 export const getReadyPayrolls = async () => {
   const response = await axiosClient.get("/payrolls/ready");
@@ -15,21 +11,7 @@ export const processPayroll = async (payrollData: any) => {
   return response.data;
 };
 
-export const getPayrollHistory = async () => {
-  const response = await axiosClient.get("/payrolls/history");
-  return response.data;
-};
-
-// =====================================
-// MIGRATION TOOLS ENDPOINTS
-// =====================================
-
-export const getMigrationStatus = async (limit: number = 10) => {
-  const response = await axiosClient.get(`/migration/status?limit=${limit}`);
-  return response.data;
-};
-
-export const startMigrationBatch = async (batchSize: number) => {
-  const response = await axiosClient.post(`/migration/start-batch?batch_size=${batchSize}`);
+export const getPayrollHistory = async (limit: number = 100, offset: number = 0) => {
+  const response = await axiosClient.get(`/payrolls/history?limit=${limit}&offset=${offset}`);
   return response.data;
 };

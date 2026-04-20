@@ -1,4 +1,4 @@
-// lib/api/api_auth.ts
+// /frontend/lib/api/api_auth.ts
 import axiosClient from "./axiosClient";
 
 export const loginUser = async (email: string, password: string) => {

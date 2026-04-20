@@ -1,8 +1,8 @@
-// lib/api/api_invoices.ts
+// frontend/lib/api/api_invoices.ts
 import axiosClient from "./axiosClient";
 
-export const getInvoiceHistory = async () => {
-  const response = await axiosClient.get("/invoices/history");
+export const getInvoiceHistory = async (limit: number = 100, offset: number = 0) => {
+  const response = await axiosClient.get(`/invoices/history?limit=${limit}&offset=${offset}`);
   return response.data;
 };
 
