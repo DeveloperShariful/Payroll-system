@@ -5,10 +5,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 import { loginUser } from "@/lib/api/api_auth";
+import { Eye, EyeOff } from "lucide-react"; // <-- ইমপোর্ট করা হলো আইকন
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // <-- নতুন স্টেট
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
@@ -21,20 +23,16 @@ export default function LoginPage() {
     setError("");
 
     try {
-      // 1. Authenticate with backend
       const data = await loginUser(email, password);
       
-      // 2. Decode JWT Token to extract the REAL role assigned by backend
       const tokenPayload = JSON.parse(atob(data.access_token.split('.')[1]));
       const actualRole = tokenPayload.role;
 
-      // 3. Save User Data and Token to Zustand (which also saves to localStorage now)
       login(
         { id: 0, email, role: actualRole, is_active: true, created_at: "" }, 
         data.access_token
       );
       
-      // 4. Redirect to Dashboard
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.response?.data?.detail || "Invalid email or password");
@@ -45,9 +43,9 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8 rounded-xl bg-white p-8 shadow-lg">
+      <div className="w-full max-w-md space-y-8 rounded-xl bg-white p-8 shadow-lg border border-gray-100">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 tracking-tight">
             System Login
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
@@ -56,15 +54,15 @@ export default function LoginPage() {
         </div>
         
         {error && (
-          <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">
+          <div className="rounded-md bg-red-50 p-4 text-sm text-red-700 border border-red-200">
             {error}
           </div>
         )}
 
         <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-          <div className="space-y-4 rounded-md shadow-sm">
+          <div className="space-y-5 rounded-md">
             <div>
-              <label className="sr-only" htmlFor="email">Email address</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">Email address</label>
               <input
                 id="email"
                 name="email"
@@ -72,31 +70,54 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-                placeholder="Email address"
+                className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all sm:text-sm"
+                placeholder="admin@payrollsystem.com"
               />
             </div>
+            
             <div>
-              <label className="sr-only" htmlFor="password">Password</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
-                placeholder="Password"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">Password</label>
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"} // <-- টাইপ টগল হবে
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="block w-full rounded-lg border border-gray-300 pl-4 pr-12 py-3 text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all sm:text-sm"
+                  placeholder="Enter your password"
+                />
+                
+                {/* Eye Icon Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <Eye className="h-5 w-5" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="group relative flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:bg-indigo-400 transition-colors"
+            className="group relative flex w-full justify-center rounded-lg border border-transparent bg-indigo-600 px-4 py-3 text-sm font-bold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:bg-indigo-400 transition-colors shadow-sm mt-8"
           >
-            {isLoading ? "Signing in..." : "Sign in"}
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Authenticating...
+              </span>
+            ) : (
+              "Secure Sign In"
+            )}
           </button>
         </form>
       </div>
