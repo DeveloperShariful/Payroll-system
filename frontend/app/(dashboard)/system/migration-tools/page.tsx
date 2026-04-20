@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getMigrationStatus, startMigrationBatch } from "@/lib/api/api_payroll";
+import { getMigrationStatus, startMigrationBatch } from "@/lib/api/api_migration";
 
 export default function MigrationToolsPage() {
   const [logs, setLogs] = useState<any[]>([]);
