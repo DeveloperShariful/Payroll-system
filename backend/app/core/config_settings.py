@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     # Security & Authentication (JWT Secrets for later use)
     SECRET_KEY: str = Field(..., min_length=32)
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080 
 
     @property
     def modern_database_url(self) -> str:

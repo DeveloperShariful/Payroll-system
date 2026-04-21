@@ -2,7 +2,6 @@
 "use client";
 
 import { Users, DollarSign, Calculator, Clock, DownloadCloud, Building2 } from "lucide-react";
-import HRChartsSection from "./HRChartsSection";
 import Link from "next/link";
 
 export default function HRDashboardMain({ data, userRole }: { data: any; userRole: string }) {
@@ -73,9 +72,6 @@ export default function HRDashboardMain({ data, userRole }: { data: any; userRol
           </div>
         </div>
       </div>
-
-      {/* 3. CHARTS COMPONENT */}
-      <HRChartsSection data={data?.charts} />
 
       {/* 4. QUICK ACTIONS & ALERTS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
