@@ -32,15 +32,21 @@ allow_supervisors_only = RoleChecker([UserRole.ADMIN, UserRole.HR_MANAGER, UserR
 # =========================================================================
 @router_jobs_assignments.post("/jobs", response_model=JobResponse, dependencies=[Depends(allow_management)])
 def create_job(job_in: JobCreate, db: Session = Depends(get_modern_db)):
+    # 1. Check if customer actually exists
     customer = db.query(Customer).filter(Customer.id == job_in.customer_id, Customer.is_deleted == False).first()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail=f"Customer with ID {job_in.customer_id} not found.")
         
-    new_job = Job(**job_in.model_dump())
-    db.add(new_job)
-    db.commit()
-    db.refresh(new_job)
-    return new_job
+    try:
+        # 2. Create Job Object using the schema data
+        new_job = Job(**job_in.model_dump())
+        db.add(new_job)
+        db.commit()
+        db.refresh(new_job)
+        return new_job
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database insertion failed: {str(e)}")
 
 @router_jobs_assignments.get("/jobs/{customer_id}", response_model=List[JobResponse], dependencies=[Depends(allow_management)])
 def get_jobs_by_customer(customer_id: int, db: Session = Depends(get_modern_db)):
@@ -179,3 +185,37 @@ def get_all_timesheets(
             return []
             
     return query.order_by(Timesheet.work_date.desc()).offset(offset).limit(limit).all()
+
+# app/api/v1/api_tracking.py এর একদম শেষে এটি যোগ করুন
+
+@router_jobs_assignments.get("/assignments/employee/{emp_id}")
+def get_assignments_for_specific_employee(emp_id: int, db: Session = Depends(get_modern_db)):
+    """
+    100% Client Requirement: 
+    এই ফাংশনটি একজন স্পেসিফিক এমপ্লয়ির অতীতের এবং বর্তমানের সব কাজের ইতিহাস খুঁজে বের করবে।
+    এটি এমপ্লয়ি প্রোফাইলের 'Job Site History' ট্যাবকে ডাটা সাপ্লাই দিবে।
+    """
+    # ১. ডাটাবেস থেকে ওই এমপ্লয়ির সব অ্যাসাইনমেন্ট খুঁজে বের করা
+    assignments = db.query(AssignmentTracking).filter(
+        AssignmentTracking.employee_id == emp_id,
+        AssignmentTracking.is_deleted == False
+    ).all()
+    
+    if not assignments:
+        return []
+
+    result = []
+    for a in assignments:
+        # ২. প্রতি অ্যাসাইনমেন্টের সাথে তার জবের নাম এবং কাস্টমারের নাম যুক্ত করা
+        result.append({
+            "assignment_id": a.id,
+            "job_id": a.job_id,
+            "job_name": a.job.job_name, # Relationships must be set in your Job model
+            "customer_name": a.job.customer.name,
+            "start_date": a.assignment_start_date.strftime("%Y-%m-%d"),
+            "pay_rate": float(a.pay_rate),
+            "bill_rate": float(a.bill_rate),
+            "is_active": a.is_active
+        })
+        
+    return result

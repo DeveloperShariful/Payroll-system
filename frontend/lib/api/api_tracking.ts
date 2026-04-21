@@ -21,3 +21,8 @@ export const assignEmployee = async (data: any): Promise<Assignment> => {
   const response = await axiosClient.post("/tracking/assignments", data);
   return response.data;
 };
+
+export const getAssignmentsByEmployee = async (empId: number): Promise<any[]> => {
+  const response = await axiosClient.get(`/tracking/assignments/employee/${empId}`);
+  return response.data;
+};

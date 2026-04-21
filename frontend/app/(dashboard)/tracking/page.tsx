@@ -5,7 +5,11 @@ import { useEffect, useState } from "react";
 import { getCustomers } from "@/lib/api/api_customers";
 import { getEmployees } from "@/lib/api/api_employees";
 import { getJobsByCustomer, createJob, getAssignmentsByJob, assignEmployee } from "@/lib/api/api_tracking";
-import { Briefcase, Building2, Users, Plus, FolderTree, ChevronRight, FileSpreadsheet, Loader2 } from "lucide-react";
+import { 
+  Briefcase, Building2, Users, Plus, FolderTree, ChevronRight, 
+  FileSpreadsheet, Loader2, ShieldCheck, MapPin, Calendar, 
+  Phone, UserCheck, Info, X, Save
+} from "lucide-react";
 
 export default function TrackingMasterDataGrid() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -25,14 +29,37 @@ export default function TrackingMasterDataGrid() {
   const [isJobModalOpen, setIsJobModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [jobError, setJobError] = useState("");
 
-  const [newJob, setNewJob] = useState({ job_name: "", job_location: "", contract_date: "" });
-  const [newAssign, setNewAssign] = useState({ employee_id: "", pay_rate: "", bill_rate: "", bill_rate_ot: "", assignment_start_date: new Date().toISOString().split('T')[0] });
+  // ==========================================
+  // FORM STATES (Expanded for Enterprise)
+  // ==========================================
+  const [newJob, setNewJob] = useState({ 
+    job_name: "", 
+    job_location: "", 
+    contract_date: "",
+    wc_expire_date: "", // Workers Comp
+    gl_expire_date: "", // General Liability
+    site_contact_name: "",
+    site_contact_phone: "",
+    is_active: true
+  });
+
+  const [newAssign, setNewAssign] = useState({ 
+    employee_id: "", 
+    pay_rate: "", 
+    bill_rate: "", 
+    bill_rate_ot: "", 
+    assignment_start_date: new Date().toISOString().split('T')[0] 
+  });
 
   useEffect(() => {
     const fetchInit = async () => {
       try {
-        const [custData, empData] = await Promise.all([getCustomers(), getEmployees()]);
+        const [custData, empData] = await Promise.all([
+          getCustomers("", true, 500, 0), 
+          getEmployees("", undefined, 1000, 0)
+        ]);
         setCustomers(custData);
         setEmployees(empData.filter((e: any) => e.is_active));
       } catch (err) {
@@ -46,13 +73,11 @@ export default function TrackingMasterDataGrid() {
 
   const handleCustomerSelect = async (custId: number) => {
     if (selectedCustomerId === custId) return;
-    
     setSelectedCustomerId(custId);
     setSelectedCustomer(customers.find(c => c.id === custId));
     setSelectedJob(null);
     setAssignments([]);
     setIsJobsLoading(true);
-    
     try {
       const jobData = await getJobsByCustomer(custId);
       setJobs(jobData);
@@ -80,13 +105,16 @@ export default function TrackingMasterDataGrid() {
     e.preventDefault();
     if (!selectedCustomer) return;
     setIsSubmitting(true);
+    setJobError("");
     try {
+      if (newJob.job_name.length < 2) throw new Error("Job name too short.");
       const created = await createJob({ ...newJob, customer_id: selectedCustomer.id });
       setJobs([...jobs, created]);
       setIsJobModalOpen(false);
-      setNewJob({ job_name: "", job_location: "", contract_date: "" });
-    } catch (err) {
-      alert("Failed to create job.");
+      setNewJob({ job_name: "", job_location: "", contract_date: "", wc_expire_date: "", gl_expire_date: "", site_contact_name: "", site_contact_phone: "", is_active: true });
+      alert("Success: New Job Site Registered.");
+    } catch (err: any) {
+      setJobError(err.response?.data?.detail || err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -105,83 +133,79 @@ export default function TrackingMasterDataGrid() {
         bill_rate_ot: parseFloat(newAssign.bill_rate_ot),
         assignment_start_date: newAssign.assignment_start_date
       });
-      const updatedAssignments = await getAssignmentsByJob(selectedJob.id);
-      setAssignments(updatedAssignments);
+      const updated = await getAssignmentsByJob(selectedJob.id);
+      setAssignments(updated);
       setIsAssignModalOpen(false);
       setNewAssign({ ...newAssign, employee_id: "", pay_rate: "", bill_rate: "", bill_rate_ot: "" });
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to assign labor.");
+      alert(err.response?.data?.detail || "Assignment Failed.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (isLoading) return <div className="p-10 flex justify-center text-gray-500"><Loader2 className="w-8 h-8 animate-spin" /></div>;
+  if (isLoading) return <div className="h-screen flex items-center justify-center bg-white"><Loader2 className="w-10 h-10 animate-spin text-indigo-600" /></div>;
 
   return (
-    <div className="h-[calc(100vh-6rem)] flex flex-col space-y-4 animate-in fade-in duration-300 overflow-hidden">
+    <div className="h-[calc(100vh-4rem)] flex flex-col overflow-hidden w-full bg-white">
       
-      {/* HEADER: Matches MS Access Form Header */}
-      <div className="bg-white border border-gray-300 shadow-sm px-4 py-3 flex justify-between items-center shrink-0 rounded-sm">
+      {/* HEADER BAR (MS Access Style) */}
+      <div className="bg-slate-800 border-b border-slate-950 px-4 py-2 flex justify-between items-center shrink-0 w-full shadow-lg z-10">
         <div className="flex items-center gap-3">
           <div className="bg-indigo-600 p-1.5 rounded">
             <FileSpreadsheet className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-gray-900 leading-tight">Master Tracking Control</h1>
-            <p className="text-xs text-gray-500 font-medium">Excel-Style Datasheet View (Intersection of Clients & Labor)</p>
+            <h1 className="text-base font-bold text-white tracking-wider">Labor Tracking Control Center</h1>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Intersection: Clients • Job Sites • Workforce</p>
           </div>
         </div>
       </div>
 
-      {/* MAIN WORKSPACE: Split Pane */}
-      <div className="flex flex-1 gap-4 min-h-0">
+      {/* WORKSPACE DIVIDER */}
+      <div className="flex flex-1 min-h-0 w-full">
         
-        {/* LEFT PANE: Hierarchy Tree (Customers -> Jobs) */}
-        <div className="w-80 flex flex-col bg-white border border-gray-300 shadow-sm rounded-sm shrink-0">
-          <div className="bg-gray-100 border-b border-gray-300 px-3 py-2 flex items-center gap-2">
-            <FolderTree className="w-4 h-4 text-gray-600" />
-            <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Client Directory</h3>
+        {/* LEFT: HIERARCHY TREE */}
+        <div className="w-80 flex flex-col bg-slate-50 border-r border-gray-300 shrink-0 shadow-inner">
+          <div className="bg-gray-200 border-b border-gray-300 px-3 py-2 flex items-center gap-2">
+            <FolderTree className="w-4 h-4 text-slate-600" />
+            <h3 className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Client Directory</h3>
           </div>
           
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-1 space-y-0.5">
             {customers.map(cust => (
-              <div key={cust.id} className="border border-transparent">
+              <div key={cust.id} className="group">
                 <button 
                   onClick={() => handleCustomerSelect(cust.id)}
-                  className={`w-full flex items-center justify-between px-2 py-1.5 text-sm rounded-sm transition-colors ${selectedCustomerId === cust.id ? "bg-indigo-100 text-indigo-900 font-bold border-indigo-200" : "hover:bg-gray-100 text-gray-700"}`}
+                  className={`w-full flex items-center justify-between px-2 py-1.5 text-[13px] rounded-sm transition-all ${selectedCustomerId === cust.id ? "bg-indigo-600 text-white font-bold shadow-md" : "hover:bg-gray-200 text-slate-700"}`}
                 >
                   <div className="flex items-center gap-2 truncate">
-                    <Building2 className={`w-4 h-4 shrink-0 ${selectedCustomerId === cust.id ? "text-indigo-600" : "text-gray-400"}`} />
-                    <span className="truncate">{cust.name}</span>
+                    <Building2 className={`w-4 h-4 shrink-0 ${selectedCustomerId === cust.id ? "text-indigo-200" : "text-slate-400"}`} />
+                    <span className="truncate uppercase">{cust.name}</span>
                   </div>
-                  {selectedCustomerId === cust.id && <ChevronRight className="w-4 h-4 shrink-0" />}
+                  {selectedCustomerId === cust.id && <ChevronRight className="w-4 h-4" />}
                 </button>
 
-                {/* Expanded Jobs Tree */}
                 {selectedCustomerId === cust.id && (
-                  <div className="ml-5 mt-1 border-l border-gray-300 pl-2 space-y-1 py-1">
+                  <div className="ml-5 border-l-2 border-indigo-400 pl-2 py-1 space-y-1">
                     {isJobsLoading ? (
-                      <span className="text-xs text-gray-400 pl-2 animate-pulse">Loading jobs...</span>
+                      <div className="text-[10px] text-indigo-500 animate-pulse font-bold p-1">Loading Job Sites...</div>
                     ) : jobs.length === 0 ? (
-                      <span className="text-xs text-red-400 pl-2 font-medium">No active jobs found.</span>
+                      <div className="text-[10px] text-red-500 font-bold p-1 uppercase">No active sites.</div>
                     ) : (
                       jobs.map(job => (
                         <button 
                           key={job.id}
                           onClick={() => handleJobSelect(job)}
-                          className={`w-full flex items-center gap-2 px-2 py-1 text-xs rounded-sm text-left truncate transition-colors ${selectedJob?.id === job.id ? "bg-indigo-600 text-white font-bold" : "hover:bg-gray-100 text-gray-600"}`}
+                          className={`w-full flex items-center gap-2 px-2 py-1 text-[11px] rounded-sm text-left truncate transition-all ${selectedJob?.id === job.id ? "bg-emerald-600 text-white font-bold shadow-sm" : "hover:bg-indigo-50 text-slate-600"}`}
                         >
-                          <Briefcase className="w-3 h-3 shrink-0" />
+                          <Briefcase className="w-3.5 h-3.5 shrink-0" />
                           <span className="truncate">{job.job_name}</span>
                         </button>
                       ))
                     )}
-                    <button 
-                      onClick={() => setIsJobModalOpen(true)}
-                      className="w-full flex items-center gap-1 px-2 py-1 mt-1 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-sm"
-                    >
-                      <Plus className="w-3 h-3" /> Create New Job
+                    <button onClick={() => setIsJobModalOpen(true)} className="flex items-center gap-1 text-[10px] font-black text-indigo-600 hover:text-indigo-800 p-1 uppercase tracking-tighter">
+                      <Plus className="w-3 h-3" /> New Job Site
                     </button>
                   </div>
                 )}
@@ -190,90 +214,88 @@ export default function TrackingMasterDataGrid() {
           </div>
         </div>
 
-        {/* RIGHT PANE: Detail Summary & Excel DataGrid */}
-        <div className="flex-1 flex flex-col gap-4 min-w-0">
-          
+        {/* RIGHT: JOB DETAILS & DATAGRID */}
+        <div className="flex-1 flex flex-col min-w-0 bg-white">
           {!selectedJob ? (
-            <div className="flex-1 bg-white border border-gray-300 shadow-sm flex flex-col items-center justify-center text-gray-400 rounded-sm">
-              <FileSpreadsheet className="w-16 h-16 mb-3 opacity-20" />
-              <h2 className="text-lg font-bold text-gray-500">No Job Selected</h2>
-              <p className="text-sm">Select a client and job from the directory tree to view the tracking datasheet.</p>
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-300 opacity-50 p-20">
+              <Building2 className="w-32 h-32 mb-4" />
+              <h2 className="text-2xl font-black uppercase tracking-widest">Select a Client Job Site</h2>
             </div>
           ) : (
             <>
-              {/* Top Panel: Job Summary (Like MS Access Forms) */}
-              <div className="bg-white border border-gray-300 shadow-sm px-5 py-4 shrink-0 rounded-sm">
+              {/* JOB INFO PANEL (Master Data) */}
+              <div className="bg-white border-b border-gray-300 p-4 shrink-0 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
                 <div className="flex justify-between items-start">
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900">{selectedJob.job_name}</h2>
-                    <p className="text-sm font-medium text-indigo-600 mt-0.5">{selectedCustomer?.name}</p>
+                    <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">{selectedJob.job_name}</h2>
+                    <p className="text-xs font-bold text-indigo-600 uppercase flex items-center gap-1"><Building2 className="w-3 h-3" /> {selectedCustomer?.name}</p>
                   </div>
-                  <button 
-                    onClick={() => setIsAssignModalOpen(true)}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 text-sm font-bold rounded shadow-sm flex items-center gap-2 transition-colors"
-                  >
-                    <Users className="w-4 h-4" /> Assign Labor Here
+                  <button onClick={() => setIsAssignModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 text-xs font-black rounded-sm shadow-md flex items-center gap-2 transition-all active:scale-95">
+                    <Users className="w-4 h-4" /> ASSIGN LABOR
                   </button>
                 </div>
-                <div className="grid grid-cols-3 gap-6 mt-4 pt-4 border-t border-gray-100">
-                  <div><span className="block text-[10px] uppercase font-bold text-gray-400">Location</span><span className="text-sm font-medium text-gray-800">{selectedJob.job_location || "Not Provided"}</span></div>
-                  <div><span className="block text-[10px] uppercase font-bold text-gray-400">Contract Date</span><span className="text-sm font-medium text-gray-800">{selectedJob.contract_date || "N/A"}</span></div>
-                  <div><span className="block text-[10px] uppercase font-bold text-gray-400">Active Labor Assigned</span><span className="text-sm font-bold text-indigo-600">{assignments.length} Workers</span></div>
+                
+                {/* ADVANCED JOB FIELDS */}
+                <div className="grid grid-cols-4 gap-4 mt-4 bg-slate-50 p-3 rounded-sm border border-slate-200">
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><MapPin className="w-3 h-3" /> Site Location</span>
+                    <p className="text-xs font-bold text-slate-800 truncate">{selectedJob.job_location || "Not Provided"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Calendar className="w-3 h-3" /> Contract Date</span>
+                    <p className="text-xs font-bold text-slate-800">{selectedJob.contract_date || "N/A"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-black text-orange-400 uppercase tracking-widest flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> WC / GL Expiry</span>
+                    <p className="text-xs font-bold text-orange-700">{selectedJob.wc_expire_date || "N/A"} | {selectedJob.gl_expire_date || "N/A"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1"><UserCheck className="w-3 h-3" /> Active Headcount</span>
+                    <p className="text-sm font-black text-indigo-600">{assignments.length} Workers On-Site</p>
+                  </div>
                 </div>
               </div>
 
-              {/* Bottom Panel: The EXCEL-STYLE DATAGRID */}
-              <div className="flex-1 bg-white border border-gray-400 shadow-sm flex flex-col min-h-0 overflow-hidden rounded-sm relative">
-                
-                {/* Grid Toolbar */}
-                <div className="bg-gray-200 border-b border-gray-400 px-2 py-1 flex gap-2 items-center shrink-0">
-                  <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wider border-r border-gray-400 pr-2">Datasheet View</span>
-                  <span className="text-[11px] font-medium text-gray-500">{assignments.length} Records</span>
+              {/* THE DATASHEET GRID */}
+              <div className="flex-1 overflow-hidden flex flex-col bg-gray-100">
+                <div className="bg-gray-300 border-b border-gray-400 px-3 py-1 flex gap-4 items-center shrink-0">
+                  <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Worker Roster (Datasheet)</span>
                 </div>
-
-                <div className="flex-1 overflow-auto custom-scrollbar bg-gray-50">
-                  <table className="w-full text-left border-collapse whitespace-nowrap">
+                <div className="flex-1 overflow-auto custom-scrollbar">
+                  <table className="w-full text-left border-collapse whitespace-nowrap table-fixed">
                     <thead className="bg-gray-200 sticky top-0 z-10 shadow-[0_1px_0_rgb(156,163,175)]">
                       <tr>
-                        <th className="border-r border-b border-gray-400 px-2 py-1 text-xs font-bold text-gray-700">Action</th>
-                        <th className="border-r border-b border-gray-400 px-2 py-1 text-xs font-bold text-gray-700">Labor Full Name</th>
-                        <th className="border-r border-b border-gray-400 px-2 py-1 text-xs font-bold text-gray-700 text-center">SSN (Last 4)</th>
-                        <th className="border-r border-b border-gray-400 px-2 py-1 text-xs font-bold text-gray-700 text-center">Start Date</th>
-                        <th className="border-r border-b border-gray-400 px-2 py-1 text-xs font-bold text-red-800 bg-red-100 text-right">Pay Rate ($)</th>
-                        <th className="border-r border-b border-gray-400 px-2 py-1 text-xs font-bold text-green-800 bg-green-100 text-right">Bill Rate ($)</th>
-                        <th className="border-b border-gray-400 px-2 py-1 text-xs font-bold text-green-800 bg-green-100 text-right">Bill OT ($)</th>
+                        <th className="border-r border-b border-gray-400 px-2 py-1.5 text-[10px] font-black text-slate-700 uppercase w-48">Employee Full Name</th>
+                        <th className="border-r border-b border-gray-400 px-2 py-1.5 text-[10px] font-black text-slate-700 uppercase w-24 text-center">SSN (L4)</th>
+                        <th className="border-r border-b border-gray-400 px-2 py-1.5 text-[10px] font-black text-red-800 uppercase w-28 text-right bg-red-100/50">Pay Rate ($)</th>
+                        <th className="border-r border-b border-gray-400 px-2 py-1.5 text-[10px] font-black text-emerald-800 uppercase w-28 text-right bg-emerald-100/50">Bill Rate ($)</th>
+                        <th className="border-r border-b border-gray-400 px-2 py-1.5 text-[10px] font-black text-emerald-800 uppercase w-28 text-right bg-emerald-100/50">Bill OT ($)</th>
+                        <th className="border-b border-gray-400 px-2 py-1.5 text-[10px] font-black text-slate-700 uppercase w-32 text-center">Assigned Date</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white">
                       {isGridLoading ? (
-                        <tr><td colSpan={7} className="px-3 py-6 text-center text-xs text-gray-500 animate-pulse font-medium">Loading grid data...</td></tr>
+                        <tr><td colSpan={6} className="p-10 text-center text-xs font-bold text-indigo-500 animate-pulse">Syncing workforce data...</td></tr>
                       ) : assignments.length === 0 ? (
-                        <tr><td colSpan={7} className="px-3 py-6 text-center text-xs text-gray-400 font-medium bg-gray-50">No labor assigned to this job. Click 'Assign Labor' to add.</td></tr>
+                        <tr><td colSpan={6} className="p-10 text-center text-xs font-bold text-slate-400 bg-slate-50 uppercase tracking-widest">No workforce assigned to this project.</td></tr>
                       ) : (
                         assignments.map((a, idx) => (
-                          <tr key={a.assignment_id} className={`hover:bg-yellow-50 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                            <td className="border-r border-b border-gray-200 px-2 py-1 text-xs text-center w-10">
-                              <span className="w-3 h-3 bg-gray-300 inline-block"></span>
-                            </td>
-                            <td className="border-r border-b border-gray-200 px-2 py-1 text-[13px] font-medium text-gray-900">{a.employee_name}</td>
-                            <td className="border-r border-b border-gray-200 px-2 py-1 text-[13px] text-gray-600 font-mono text-center">{a.ssn_last_four}</td>
-                            <td className="border-r border-b border-gray-200 px-2 py-1 text-[13px] text-gray-600 text-center">{a.start_date}</td>
-                            
-                            {/* Financial Columns - Strictly Monospace and Color Coded */}
-                            <td className="border-r border-b border-gray-200 px-2 py-1 text-[13px] font-mono font-bold text-red-600 text-right bg-red-50/30">
-                              {a.pay_rate.toFixed(2)}
-                            </td>
-                            <td className="border-r border-b border-gray-200 px-2 py-1 text-[13px] font-mono font-bold text-green-600 text-right bg-green-50/30">
-                              {a.bill_rate.toFixed(2)}
-                            </td>
-                            <td className="border-b border-gray-200 px-2 py-1 text-[13px] font-mono font-bold text-green-600 text-right bg-green-50/30">
-                              {a.bill_rate_ot.toFixed(2)}
-                            </td>
+                          <tr key={a.assignment_id} className={`hover:bg-yellow-50 transition-none ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                            <td className="border-r border-b border-gray-200 px-2 py-1.5 text-[12px] font-bold text-slate-900">{a.employee_name}</td>
+                            <td className="border-r border-b border-gray-200 px-2 py-1.5 text-[12px] font-mono text-slate-500 text-center">{a.ssn_last_four}</td>
+                            <td className="border-r border-b border-gray-200 px-2 py-1.5 text-[13px] font-mono font-black text-red-600 text-right">{a.pay_rate.toFixed(2)}</td>
+                            <td className="border-r border-b border-gray-200 px-2 py-1.5 text-[13px] font-mono font-black text-emerald-600 text-right">{a.bill_rate.toFixed(2)}</td>
+                            <td className="border-r border-b border-gray-200 px-2 py-1.5 text-[13px] font-mono font-black text-emerald-600 text-right">{a.bill_rate_ot.toFixed(2)}</td>
+                            <td className="border-b border-gray-200 px-2 py-1.5 text-[11px] font-mono text-slate-500 text-center uppercase">{a.start_date}</td>
                           </tr>
                         ))
                       )}
                     </tbody>
                   </table>
+                </div>
+                <div className="bg-gray-200 border-t border-gray-400 px-3 py-1 shrink-0 flex justify-between">
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">End of Datasheet • Row Count: {assignments.length}</span>
                 </div>
               </div>
             </>
@@ -281,30 +303,64 @@ export default function TrackingMasterDataGrid() {
         </div>
       </div>
 
-      {/* --- MODAL: CREATE JOB --- */}
+      {/* ==========================================
+          MODAL: CREATE NEW JOB (Enterprise Version)
+          ========================================== */}
       {isJobModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white shadow-xl overflow-hidden rounded-md border border-gray-400">
-            <div className="px-5 py-3 border-b bg-gray-100 flex justify-between items-center">
-              <h3 className="font-bold text-gray-900 text-sm">Create New Job/Site</h3>
-              <button onClick={() => setIsJobModalOpen(false)} className="text-gray-500 hover:text-red-500">&times;</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl bg-white shadow-2xl rounded-sm border-t-4 border-indigo-600 animate-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+              <h3 className="font-black text-slate-900 uppercase tracking-widest flex items-center gap-2"><Briefcase className="w-5 h-5 text-indigo-600"/> Site Registration Form</h3>
+              <button onClick={() => setIsJobModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors"><X className="w-6 h-6"/></button>
             </div>
-            <form onSubmit={handleCreateJob} className="p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Job/Project Name *</label>
-                <input type="text" required value={newJob.job_name} onChange={e => setNewJob({...newJob, job_name: e.target.value})} className="w-full border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" />
+            
+            <form onSubmit={handleCreateJob} className="p-6 space-y-6">
+              {jobError && <div className="p-3 bg-red-50 border-l-4 border-red-500 text-red-700 text-[10px] font-black uppercase tracking-widest mb-4 flex items-center gap-2"><Info className="w-4 h-4"/> {jobError}</div>}
+              
+              <div className="grid grid-cols-2 gap-6">
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Job/Project Name *</label>
+                  <input type="text" required value={newJob.job_name} onChange={e => setNewJob({...newJob, job_name: e.target.value})} className="w-full border border-slate-300 p-2 text-sm font-bold focus:border-indigo-600 outline-none shadow-inner" placeholder="e.g. Skyline Tower Phase 1" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Physical Site Location</label>
+                  <input type="text" value={newJob.job_location} onChange={e => setNewJob({...newJob, job_location: e.target.value})} className="w-full border border-slate-300 p-2 text-sm focus:border-indigo-600 outline-none shadow-inner" placeholder="Address, City" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Contract Start Date</label>
+                  <input type="date" value={newJob.contract_date} onChange={e => setNewJob({...newJob, contract_date: e.target.value})} className="w-full border border-slate-300 p-2 text-sm focus:border-indigo-600 outline-none font-mono" />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Site Location</label>
-                <input type="text" value={newJob.job_location} onChange={e => setNewJob({...newJob, job_location: e.target.value})} className="w-full border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" />
+
+              {/* COMPLIANCE ROW */}
+              <div className="p-4 bg-orange-50 border border-orange-200 rounded-sm grid grid-cols-2 gap-4">
+                <div className="col-span-2 text-[10px] font-black text-orange-800 uppercase flex items-center gap-2 mb-1"><ShieldCheck className="w-4 h-4"/> Site Compliance & Insurance (Critical for Alerts)</div>
+                <div>
+                  <label className="block text-[9px] font-bold text-orange-700 uppercase mb-1">Workers Comp Expiry</label>
+                  <input type="date" value={newJob.wc_expire_date} onChange={e => setNewJob({...newJob, wc_expire_date: e.target.value})} className="w-full border border-orange-300 p-2 text-xs font-mono outline-none focus:border-orange-500" />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-orange-700 uppercase mb-1">General Liability Exp.</label>
+                  <input type="date" value={newJob.gl_expire_date} onChange={e => setNewJob({...newJob, gl_expire_date: e.target.value})} className="w-full border border-orange-300 p-2 text-xs font-mono outline-none focus:border-orange-500" />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Contract Start Date</label>
-                <input type="date" value={newJob.contract_date} onChange={e => setNewJob({...newJob, contract_date: e.target.value})} className="w-full border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" />
+
+              {/* SITE CONTACT ROW */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Site Supervisor Name</label>
+                  <input type="text" value={newJob.site_contact_name} onChange={e => setNewJob({...newJob, site_contact_name: e.target.value})} className="w-full border border-slate-300 p-2 text-sm outline-none focus:border-indigo-600" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Site Contact Phone</label>
+                  <input type="text" value={newJob.site_contact_phone} onChange={e => setNewJob({...newJob, site_contact_phone: e.target.value})} className="w-full border border-slate-300 p-2 text-sm font-mono outline-none focus:border-indigo-600" />
+                </div>
               </div>
-              <div className="pt-2">
-                <button type="submit" disabled={isSubmitting} className="w-full bg-indigo-600 text-white font-bold py-2 text-sm hover:bg-indigo-700 disabled:opacity-50 transition-colors">
-                  {isSubmitting ? "Saving..." : "Save Job Record"}
+
+              <div className="pt-4 border-t flex justify-end gap-3">
+                <button type="button" onClick={() => setIsJobModalOpen(false)} className="px-6 py-2 text-xs font-black text-slate-500 uppercase hover:text-slate-800 transition-colors">Cancel</button>
+                <button type="submit" disabled={isSubmitting} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2 text-xs font-black rounded-sm shadow-lg flex items-center gap-2 transition-all disabled:opacity-50">
+                  <Save className="w-4 h-4" /> {isSubmitting ? "PROCESSING..." : "CONFIRM & SAVE RECORD"}
                 </button>
               </div>
             </form>

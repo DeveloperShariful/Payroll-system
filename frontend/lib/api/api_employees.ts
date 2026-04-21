@@ -22,3 +22,9 @@ export const createEmployee = async (data: any): Promise<Employee> => {
   const response = await axiosClient.post("/employees/", data);
   return response.data;
 };
+
+// 👇 এই ফাংশনটি নতুন অ্যাড করা হলো (এটিই প্রথম এররটি ফিক্স করবে)
+export const updateEmployee = async (id: number, data: Partial<Employee>): Promise<Employee> => {
+  const response = await axiosClient.patch(`/employees/${id}`, data);
+  return response.data;
+};
